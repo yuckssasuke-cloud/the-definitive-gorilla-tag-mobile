@@ -3,120 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gorilla Tag VR - Hand Tracking 🦍🖐️</title>
-    
+    <title>Gorilla Tag Mobile VR 🦍</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
-    <video id="webcam" autoplay playsinline style="display:none;"></video>
-
     <a-scene xr-mode-ui="enabled: true">
-        <a-sky color="#87CEEB"></a-sky>
+        
+        <a-assets>
+            <img id="sky" src="https://cdn.aframe.io/360-image-gallery-gradient/img/seaside.jpg">
+        </a-assets>
+
+        <a-sky src="#sky"></a-sky>
 
         <a-plane position="0 0 0" rotation="-90 0 0" width="100" height="100" color="#228B22"></a-plane>
 
         <a-box position="-5 1.5 -10" width="3" height="3" depth="3" color="#8B4513"></a-box>
         <a-box position="5 3 -15" width="4" height="6" depth="4" color="#8B4513"></a-box>
         <a-box position="0 2 -8" width="2" height="4" depth="2" color="#A0522D"></a-box>
-        <a-sphere position="0 5 -8" radius="3" color="#2e8b57"></a-sphere>
+        <a-sphere position="0 5 -8" radius="3" color="#2e8b57"></a-sphere> <a-box position="-2 4 -12" width="3" height="1" depth="3" color="#556B2F"></a-box>
 
         <a-entity id="player" position="0 0 0">
             <a-camera id="camera" look-controls>
-                <a-sphere id="virtualHand" position="0 -0.5 -1" radius="0.1" color="#FF0000"></a-sphere>
+                <a-cursor color="#FF0000" animation__click="property: scale; startEvents: click; easing: easeInCasing; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150"></a-cursor>
             </a-camera>
         </a-entity>
+
     </a-scene>
 
     <script>
+        // LÓGICA DO MOVIMENTO "GORILLA" 🦍
         const player = document.getElementById('player');
         const camera = document.getElementById('camera');
-        const virtualHand = document.getElementById('virtualHand');
-        const videoElement = document.getElementById('webcam');
         
         let velocityY = 0;
         let isGrounded = true;
         const gravity = -9.8; 
         let pos = { x: 0, y: 0, z: 0 };
-        
-        let lastHandY = 0;
 
-        // 1. CONFIGURAR O MEDIAPIPE PARA DETECTAR APENAS 1 MÃO
-        const hands = new Hands({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-        });
+        // Quando o jogador clica na tela ou usa o gatilho do VR
+        window.addEventListener('click', () => {
+            if (isGrounded) {
+                // Descobre para onde o jogador está olhando
+                const direction = new THREE.Vector3();
+                camera.object3D.getWorldDirection(direction);
 
-        hands.setOptions({
-            maxNumHands: 1, // Apenas uma mão como você pediu!
-            modelComplexity: 1,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
-
-        // O que acontece quando o celular detecta a mão dela:
-        hands.onResults((results) => {
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const hand = results.multiHandLandmarks[0];
+                // O pulo vai para a direção oposta do olhar (igual empurrar o chão no Gorilla Tag!)
+                // Multiplicamos para dar o impulso
+                const impulseX = -direction.x * 5;
+                const impulseZ = -direction.z * 5;
                 
-                // Pega a altura do pulso (Landmark 0)
-                // No MediaPipe, Y vai de 0 (topo) a 1 (fundo)
-                const currentHandY = hand[0].y; 
+                // Força do pulo para cima
+                velocityY = 6; 
+                isGrounded = false;
 
-                // Faz a bolinha vermelha (mão virtual) se mexer na tela baseado na mão real
-                const handX = (hand[0].x - 0.5) * 2;
-                const handVisualY = -(hand[0].y - 0.5) * 2;
-                virtualHand.setAttribute('position', `${handX} ${handVisualY} -1`);
-
-                // MECÂNICA GORILLA TAG: Se ela fizer um movimento rápido para baixo (empurrar o chão)
-                if (isGrounded && (currentHandY - lastHandY) > 0.12) {
-                    const direction = new THREE.Vector3();
-                    camera.object3D.getWorldDirection(direction);
-
-                    // Impulso para frente baseado para onde ela olha
-                    velocityY = 6; // Pulo para cima
-                    pos.x += -direction.x * 4;
-                    pos.z += -direction.z * 4;
-                    isGrounded = false;
-                }
-                
-                lastHandY = currentHandY;
+                // Aplica o movimento para frente/lados
+                pos.x += impulseX;
+                pos.z += impulseZ;
             }
         });
 
-        // 2. ATIVAR A CÂMERA TRASEIRA DO CELULAR
-        const cameraUtils = new Camera(videoElement, {
-            onFrame: async () => {
-                await hands.send({ image: videoElement });
-            },
-            width: 480,
-            height: 360,
-            facingMode: 'environment' // 'environment' força o uso da câmera de trás!
-        });
-        
-        cameraUtils.start();
-
-        // 3. FÍSICA DO JOGO (GRAVIDADE)
+        // Loop do jogo para aplicar gravidade e física básica
         function updatePhysics(time, timeDelta) {
-            const dt = timeDelta / 1000;
+            const dt = timeDelta / 1000; // Converte para segundos
 
             if (!isGrounded) {
+                // Aplica gravidade se estiver no ar
                 velocityY += gravity * dt;
                 pos.y += velocityY * dt;
 
+                // Se bater no chão, para de cair
                 if (pos.y <= 0) {
                     pos.y = 0;
                     velocityY = 0;
                     isGrounded = true;
                 }
 
+                // Atualiza a posição do jogador
                 player.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
             }
 
             requestAnimationFrame(() => updatePhysics(performance.now(), performance.now() - time));
         }
+
+        // Inicia a física
         updatePhysics(performance.now(), 0);
     </script>
 </body>
