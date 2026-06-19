@@ -2,81 +2,77 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Gorilla Tag VR Clássico 🦍🥽</title>
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
+        
+        /* Divide a tela perfeitamente ao meio para o VR Box */
+        .vr-container { display: flex; width: 100%; height: 100%; }
+        .view { width: 50%; height: 100%; position: relative; overflow: hidden; border-right: 2px solid #000; }
+        .view:last-child { border-right: none; }
+
+        /* Desenho do cenário (Céu, Chão e Árvores) */
+        .sky { width: 100%; height: 60%; background: #87CEEB; }
+        .ground { width: 100%; height: 40%; background: #228B22; position: relative; }
+        
+        /* Árvores e Blocos simulando 3D */
+        .tree-trunk { width: 40px; height: 120px; background: #8B4513; position: absolute; bottom: 30%; left: 40%; }
+        .tree-leaves { width: 100px; height: 100px; background: #2e8b57; border-radius: 50%; position: absolute; bottom: 80%; left: -30px; }
+        .block { width: 60px; height: 60px; background: #A0522D; position: absolute; bottom: 10%; left: 70%; }
+
+        /* Texto de aviso */
+        .info { position: absolute; top: 10%; width: 100%; text-align: center; color: white; font-weight: bold; font-size: 14px; text-shadow: 1px 1px 2px black; }
+    </style>
 </head>
 <body>
 
-    <!-- Jogo limpo, sem pedir câmera para não dar erro nos navegadores! -->
-    <a-scene xr-mode-ui="enabled: true">
+    <!-- O JOGO DIVIDIDO PARA O ÓCULOS -->
+    <div class="vr-container" id="game-screen">
         
-        <!-- CÉU AZUL SEGURO -->
-        <a-sky color="#87CEEB"></a-sky>
+        <!-- OLHO ESQUERDO -->
+        <div class="view">
+            <div class="sky"></div>
+            <div class="ground">
+                <div class="tree-trunk"><div class="tree-leaves"></div></div>
+                <div class="block"></div>
+            </div>
+            <div class="info">TOQUE PARA PULAR! 🦍</div>
+        </div>
 
-        <!-- CHÃO -->
-        <a-plane position="0 0 0" rotation="-90 0 0" width="100" height="100" color="#228B22"></a-plane>
+        <!-- OLHO DIREITO -->
+        <div class="view">
+            <div class="sky"></div>
+            <div class="ground">
+                <div class="tree-trunk"><div class="tree-leaves"></div></div>
+                <div class="block"></div>
+            </div>
+            <div class="info">TOQUE PARA PULAR! 🦍</div>
+        </div>
 
-        <!-- ÁRVORES E BLOCOS PARA PARKOUR -->
-        <a-box position="-5 1.5 -10" width="3" height="3" depth="3" color="#8B4513"></a-box>
-        <a-box position="5 3 -15" width="4" height="6" depth="4" color="#8B4513"></a-box>
-        <a-box position="0 2 -8" width="2" height="4" depth="2" color="#A0522D"></a-box>
-        <a-sphere position="0 5 -8" radius="3" color="#2e8b57"></a-sphere> 
-        <a-box position="-2 4 -12" width="3" height="1" depth="3" color="#556B2F"></a-box>
-
-        <!-- JOGADOR (Câmera + Pulo pelo botão) -->
-        <a-entity id="player" position="0 0 0">
-            <a-camera id="camera" look-controls>
-                <a-cursor color="#FF0000"></a-cursor>
-            </a-camera>
-        </a-entity>
-
-    </a-scene>
+    </div>
 
     <script>
-        const player = document.getElementById('player');
-        const camera = document.getElementById('camera');
-        
-        let velocityY = 0;
-        let isGrounded = true;
-        const gravity = -9.8; 
-        let pos = { x: 0, y: 0, z: 0 };
+        const gameScreen = document.getElementById('game-screen');
+        let isJumping = false;
 
-        // Pulo ativado pelo clique na tela ou botão do VR Box!
+        // Efeito de pulo simples ao clicar na tela ou no botão do VR Box
         window.addEventListener('click', () => {
-            if (isGrounded) {
-                const direction = new THREE.Vector3();
-                camera.object3D.getWorldDirection(direction);
-
-                // Força do pulo para frente e para cima
-                velocityY = 6; 
-                isGrounded = false;
-
-                pos.x += -direction.x * 5;
-                pos.z += -direction.z * 5;
+            if (!isJumping) {
+                isJumping = true;
+                
+                // Faz as duas telas darem um solavanco para baixo (parecendo que o macaco pulou!)
+                gameScreen.style.transition = "transform 0.2s ease-out";
+                gameScreen.style.transform = "translateY(80px)";
+                
+                setTimeout(() => {
+                    gameScreen.style.transition = "transform 0.4s ease-in";
+                    gameScreen.style.transform = "translateY(0px)";
+                    isJumping = false;
+                }, 200);
             }
         });
-
-        function updatePhysics(time, timeDelta) {
-            const dt = timeDelta / 1000;
-
-            if (!isGrounded) {
-                velocityY += gravity * dt;
-                pos.y += velocityY * dt;
-
-                if (pos.y <= 0) {
-                    pos.y = 0;
-                    velocityY = 0;
-                    isGrounded = true;
-                }
-
-                player.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
-            }
-
-            requestAnimationFrame(() => updatePhysics(performance.now(), performance.now() - time));
-        }
-
-        updatePhysics(performance.now(), 0);
     </script>
 </body>
 </html>
