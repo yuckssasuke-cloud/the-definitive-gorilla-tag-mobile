@@ -8,63 +8,112 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body, html { width: 100%; height: 100%; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
         
-        /* Divide a tela perfeitamente ao meio para o VR Box */
+        /* Container principal */
         .vr-container { display: flex; width: 100%; height: 100%; }
         .view { width: 50%; height: 100%; position: relative; overflow: hidden; border-right: 2px solid #000; }
         .view:last-child { border-right: none; }
 
-        /* Desenho do cenário (Céu, Chão e Árvores) */
+        /* Cenário que vai se mover com o Giroscópio */
+        .scenery { width: 200%; height: 100%; position: absolute; left: -50%; top: 0; display: flex; }
+        .left-eye-scene, .right-eye-scene { width: 50%; height: 100%; position: relative; }
+
+        /* Elementos visuais */
         .sky { width: 100%; height: 60%; background: #87CEEB; }
         .ground { width: 100%; height: 40%; background: #228B22; position: relative; }
         
-        /* Árvores e Blocos simulando 3D */
-        .tree-trunk { width: 40px; height: 120px; background: #8B4513; position: absolute; bottom: 30%; left: 40%; }
+        .tree-trunk { width: 40px; height: 120px; background: #8B4513; position: absolute; bottom: 30%; left: 45%; }
         .tree-leaves { width: 100px; height: 100px; background: #2e8b57; border-radius: 50%; position: absolute; bottom: 80%; left: -30px; }
-        .block { width: 60px; height: 60px; background: #A0522D; position: absolute; bottom: 10%; left: 70%; }
+        .block { width: 60px; height: 60px; background: #A0522D; position: absolute; bottom: 10%; left: 75%; }
 
-        /* Texto de aviso */
-        .info { position: absolute; top: 10%; width: 100%; text-align: center; color: white; font-weight: bold; font-size: 14px; text-shadow: 1px 1px 2px black; }
+        .info { position: absolute; top: 10%; width: 100%; text-align: center; color: white; font-weight: bold; font-size: 14px; text-shadow: 1px 1px 2px black; z-index: 10; }
+        
+        /* Botão para ativar o sensor no iPhone (se necessário) */
+        #start-btn { position: absolute; top: 40%; left: 35%; width: 30%; height: 50px; background: #FF4500; color: white; border: none; border-radius: 10px; font-weight: bold; font-size: 16px; z-index: 20; cursor: pointer; }
     </style>
 </head>
 <body>
+
+    <button id="start-btn" onclick="ativarSensores()">JOGAR NO VR 🦍</button>
+
+    <div class="info" id="aviso">CLIQUE NO BOTÃO LARANJA PARA ATIVAR O VR!</div>
 
     <!-- O JOGO DIVIDIDO PARA O ÓCULOS -->
     <div class="vr-container" id="game-screen">
         
         <!-- OLHO ESQUERDO -->
         <div class="view">
-            <div class="sky"></div>
-            <div class="ground">
-                <div class="tree-trunk"><div class="tree-leaves"></div></div>
-                <div class="block"></div>
+            <div class="scenery" id="scene-left">
+                <div class="sky"></div>
+                <div class="ground">
+                    <div class="tree-trunk"><div class="tree-leaves"></div></div>
+                    <div class="block"></div>
+                </div>
             </div>
-            <div class="info">TOQUE PARA PULAR! 🦍</div>
         </div>
 
         <!-- OLHO DIREITO -->
         <div class="view">
-            <div class="sky"></div>
-            <div class="ground">
-                <div class="tree-trunk"><div class="tree-leaves"></div></div>
-                <div class="block"></div>
+            <div class="scenery" id="scene-right">
+                <div class="sky"></div>
+                <div class="ground">
+                    <div class="tree-trunk"><div class="tree-leaves"></div></div>
+                    <div class="block"></div>
+                </div>
             </div>
-            <div class="info">TOQUE PARA PULAR! 🦍</div>
         </div>
 
     </div>
 
     <script>
         const gameScreen = document.getElementById('game-screen');
+        const sceneLeft = document.getElementById('scene-left');
+        const sceneRight = document.getElementById('scene-right');
+        const startBtn = document.getElementById('start-btn');
+        const aviso = document.getElementById('aviso');
+        
         let isJumping = false;
 
-        // Efeito de pulo simples ao clicar na tela ou no botão do VR Box
+        // 1. ATIVAR OS SENSORES DO CELULAR
+        function ativarSensores() {
+            startBtn.style.display = 'none'; // Esconde o botão
+            aviso.innerHTML = "TOQUE PARA PULAR! 🦍";
+
+            // Se for iPhone, pede permissão para o sensor
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            window.addEventListener('deviceorientation', moverCenario);
+                        }
+                    });
+            } else {
+                // No Android ativa direto!
+                window.addEventListener('deviceorientation', moverCenario);
+            }
+        }
+
+        // 2. FAZER O CENÁRIO VIRAR QUANDO MEXE O CELULAR
+        function moverCenario(event) {
+            // O "gamma" mede a inclinação do celular para os lados
+            let girar = event.gamma; 
+            
+            // Limita o movimento para não quebrar a tela
+            if (girar > 45) girar = 45;
+            if (girar < -45) girar = -45;
+
+            // Faz o cenário deslizar baseado no movimento do celular
+            let deslocamento = girar * 4; 
+            sceneLeft.style.transform = `translateX(${deslocamento}px)`;
+            sceneRight.style.transform = `translateX(${deslocamento}px)`;
+        }
+
+        // 3. EFEITO DE PULO
         window.addEventListener('click', () => {
-            if (!isJumping) {
+            if (!isJumping && startBtn.style.display === 'none') {
                 isJumping = true;
                 
-                // Faz as duas telas darem um solavanco para baixo (parecendo que o macaco pulou!)
                 gameScreen.style.transition = "transform 0.2s ease-out";
-                gameScreen.style.transform = "translateY(80px)";
+                gameScreen.style.transform = "translateY(100px)";
                 
                 setTimeout(() => {
                     gameScreen.style.transition = "transform 0.4s ease-in";
